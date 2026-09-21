@@ -22,16 +22,22 @@
 %%%
 
 declare
+[Lisp] = {Module.link ['/home/slytobias/oz/modules/Lisp.ozf']}
+[Core] = {Module.link ['/home/slytobias/oz/modules/Core.ozf']}
+
+declare
 fun {Square X}
    X * X
 end
+
+declare
 fun {SmallestDivisor N}
    {FindDivisor N 2}
 end
 fun {FindDivisor N TestDivisor}
    if {Square TestDivisor} > N then N
    elseif {Divides TestDivisor N} then TestDivisor
-   else {FindDivisor N TestDivisor+1}
+   else {FindDivisor N {Core.inc TestDivisor}}
    end
 end
 fun {Divides D N}
@@ -46,7 +52,7 @@ declare
 fun {ExpMod Base Exp M}
    if Exp == 0 then 1
    elseif {IsEven Exp} then {Square {ExpMod Base (Exp div 2) M}} mod M
-   else (Base * {ExpMod Base (Exp - 1) M}) mod M
+   else (Base * {ExpMod Base {Core.dec Exp} M}) mod M
    end
 end
 fun {RandomRange A B}
@@ -61,11 +67,11 @@ fun {FermatTest N}
       {ExpMod A N N} == A
    end
 in
-   {TryIt {RandomRange 1 (N - 1)}}
+   {TryIt {RandomRange 1 {Core.dec N}}}
 end
 fun {FastIsPrime N Times}
    if Times == 0 then true
-   elseif {FermatTest N} then {FastIsPrime N (Times - 1)}
+   elseif {FermatTest N} then {FastIsPrime N {Core.dec Times}}
    else false
    end
 end
@@ -79,17 +85,16 @@ end
 %%%
 %%%    1.23
 %%%
+%%%    a) Only check odd divisors
+%%%    
 declare
-fun {Square X}
-   X * X
-end
 fun {SmallestDivisor N}
    {FindDivisor N 2}
 end
 fun {FindDivisor N TestDivisor}
    fun {Next Divisor}
       if Divisor == 2 then 3
-      else Divisor + 1
+      else Divisor + 2
       end
    end
 in
@@ -112,6 +117,9 @@ end
 {Show {IsPrime 1729}} % Carmichael Number!!
 {Show {IsPrime 15485849}}
 
+%%%
+%%%    b) Inline decision for `next' divisor
+%%%    
 declare
 fun {SmallestDivisor N}
    {FindDivisor N 2}
@@ -119,7 +127,7 @@ end
 fun {FindDivisor N TestDivisor}
    if {Square TestDivisor} > N then N
    elseif {Divides TestDivisor N} then TestDivisor
-   else {FindDivisor N if TestDivisor == 2 then 3 else TestDivisor + 1 end}
+   else {FindDivisor N if TestDivisor == 2 then 3 else (TestDivisor + 2) end}
    end
 end
 fun {IsPrime N}
@@ -127,6 +135,9 @@ fun {IsPrime N}
    N == {SmallestDivisor N}
 end
 
+%%%
+%%%    c) Don't make any decision for `next' divisor
+%%%    
 declare
 fun {SmallestDivisor N}
    {FindDivisor N 2}
@@ -159,7 +170,7 @@ declare
 fun {IsCarmichael N}
    fun {Confirm A}
       if A == N then true
-      elseif {ExpMod A N N} == A then {Confirm A + 1}
+      elseif {ExpMod A N N} == A then {Confirm {Core.inc A}}
       else false
       end
    end
@@ -211,7 +222,7 @@ in
       else Y
       end
    else
-      (Base * {ExpMod Base (Exp - 1) M}) mod M
+      (Base * {ExpMod Base {Core.dec Exp} M}) mod M
    end
 end
 fun {MillerRabin N}

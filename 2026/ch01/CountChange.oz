@@ -22,6 +22,10 @@
 %%%
 
 declare
+[Lisp] = {Module.link ['/home/slytobias/oz/modules/Lisp.ozf']}
+[Core] = {Module.link ['/home/slytobias/oz/modules/Core.ozf']}
+
+declare
 fun {Denomination Coin}
    case Coin
    of penny then 1
@@ -110,3 +114,65 @@ fun {CountChange Amount Coins}
 in
    {CountCoins Amount {Sort Coins Value.'<'} 0 0}
 end
+
+declare
+fun {BuildCoins Coins Values}
+   fun {Build Coin Value}
+      if Coin == 0 then nil
+      else Value|{Build {Core.dec Coin} Value}
+      end
+   end
+in
+   case Coins#Values
+   of nil#nil then nil
+   [] (Coin|Coins)#(Value|Values) then
+      {Append {Build Coin Value} {BuildCoins Coins Values}}
+   end
+end
+fun {Exercism Amount Coins}
+   fun {PathLength Path}
+      {FoldL Path Number.'+' 0}
+   end
+   fun {IsInvalidPath Path Candidate}
+      Path \= nil andthen {PathLength Candidate} >= {PathLength Path}
+   end
+   fun {MakeChange Coins CandidateCoins CandidateValues Limit Path}
+      case Coins
+      of nil then
+         if Amount == {FoldL CandidateValues Number.'+' 0} then CandidateCoins else Path end
+      [] V|Coins then
+         {Iterate V (Limit div V) Limit Coins CandidateCoins CandidateValues Path}
+      end
+   end
+   fun {Iterate V N Limit Coins CandidateCoins CandidateValues Path}
+      if N < 0 orelse {IsInvalidPath Path N|CandidateCoins} then Path
+      else Value = N * V in
+         {Iterate V {Core.dec N} Limit Coins CandidateCoins CandidateValues
+          {MakeChange Coins N|CandidateCoins Value|CandidateValues (Limit - Value) Path}}
+      end
+   end
+   Ascending = {Sort Coins Value.'<'}
+   Descending = {Sort Coins Value.'>'}
+in
+   {BuildCoins {MakeChange Descending nil nil Amount nil} Ascending}
+end
+
+{Show {BuildCoins [0 2 1 0 2 1 9] [1 2 5 10 20 50 100]}}
+
+{Show {Exercism 1 [1 5 10 25]}}
+{Show {Exercism 25 [1 5 10 25 100]}}
+{Show {Exercism 15 [1 5 10 25 100]}}
+{Show {Exercism 23 [1 4 15 20 50]}}
+{Show {Exercism 63 [1 5 10 21 25]}}
+{Show {Exercism 999 [1 2 5 10 20 50 100]}}
+{Show {Exercism 21 [2 5 10 20 50]}}
+{Show {Exercism 27 [4 5]}}
+{Show {Exercism 20 [1 10 11]}}
+{Show {Exercism 0 [1 5 10 21 25]}}
+{Show {Exercism 3 [5 10]}}
+{Show {Exercism 94 [5 10]}}
+{Show {Exercism ~5 [1 2 5]}}
+
+
+         
+         

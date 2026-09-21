@@ -54,6 +54,18 @@ fun {SumSquareMax A B C}
    end
 end
 
+declare
+fun {SumSquareMax A B C}
+   if A < B then
+      if A < C then {SumOfSquares B C}
+      else {SumOfSquares A B}
+      end
+   else
+      if B < C then {SumOfSquares A C}
+      else {SumOfSquares A B}
+      end
+   end
+end
 
 {Show 20 == {SumSquareMax 2 4 1}}
 {Show 20 == {SumSquareMax 2 4 2}}
@@ -69,7 +81,6 @@ end
 {Show 18 == {SumSquareMax 3 3 3}}
 {Show 34 == {SumSquareMax 3 3 5}}
 
-
 declare
 fun {SumSquareMax A B C}
    if A < B andthen A < C then {SumOfSquares B C}
@@ -78,18 +89,61 @@ fun {SumSquareMax A B C}
    end
 end
 
-% (defun discard-min (xs)
-%   "Remove the smallest value from list."
-%   (labels ((discard (target l result)
-%              (cond ((endp l) result)
-%                    ((< (first l) target) (discard (first l) (rest l) (cons target result)))
-%                    (t (discard target (rest l) (cons (first l) result)))) ))
-%     (if (null xs)
-%         '()
-%         (discard (first xs) (rest xs) '()))) )
+declare
+fun {DiscardExtreme Xs Test}
+   fun {Discard Target L Result}
+      case L
+      of nil then Result
+      [] H|T andthen {Test H Target} then {Discard H T Target|Result}
+      [] H|T then {Discard Target T H|Result}
+      end
+   end
+in
+   case Xs
+   of nil then nil
+   [] H|T then {Discard H T nil}
+   end
+end
 
-% (defun sum-square-max (a b c)
-%   (apply #'sum-of-squares (discard-min (list a b c))))
+{Show {DiscardExtreme [1 2 3 4 5] Value.'<'}}
+{Show {DiscardExtreme [5 4 3 2 1] Value.'<'}}
+{Show {DiscardExtreme [2 1 4 5 3] Value.'<'}}
+{Show {DiscardExtreme [1 2 3 4 5] Value.'>'}}
+{Show {DiscardExtreme [5 4 3 2 1] Value.'>'}}
+{Show {DiscardExtreme [2 1 4 5 3] Value.'>'}}
+
+declare
+fun {DiscardMin Xs}
+   fun {Discard Target L Result}
+      case L
+      of nil then Result
+      [] H|T andthen H < Target then {Discard H T Target|Result}
+      [] H|T then {Discard Target T H|Result}
+      end
+   end
+in
+   case Xs
+   of nil then nil
+   [] H|T then {Discard H T nil}
+   end
+end
+fun {SumSquareMax A B C}
+%   {Procedure.apply SumOfSquares [{DiscardMin [A B C]} $]}
+   Result
+in
+   {Procedure.apply SumOfSquares {Append {DiscardMin [A B C]} [Result]}}
+   Result
+end
+
+declare
+fun {SumSquareMax A B C}
+   {Lisp.apply SumOfSquares {DiscardMin [A B C]}}
+end
+
+{Show {DiscardMin [1 2 3 4 5]}}
+{Show {DiscardMin [5 4 3 2 1]}}
+{Show {DiscardMin [2 1 4 5 3]}}
+
 
 %%%
 %%%    "Bubblesort"
@@ -108,6 +162,9 @@ fun {Median A B C}
     {Max {Min A B} C}}
 end
 
+%%%
+%%%    Bubble
+%%%
 declare
 fun {Median A B C}
    if B < A then {Median B A C}
@@ -126,10 +183,10 @@ fun {SqrtIter Guess X}
    end
 end
 fun {Improve Guess X}
-   {Average Guess X/Guess}
+   {Average Guess (X / Guess)}
 end
 fun {Average X Y}
-   (X+Y)/2.0
+   (X + Y) / 2.0
 end
 fun {IsGoodEnough Guess X}
    {Abs {Square Guess} - X} < 0.001
@@ -138,6 +195,28 @@ fun {Sqrt X}
    {SqrtIter 1.0 X}
 end
 
+%%%
+%%%    1.7
+%%%
+declare
+fun {SqrtIterRel Guess X}
+   if {IsGoodEnoughRel Guess X} then Guess
+   else {SqrtIterRel {Improve Guess X} X}
+   end
+end
+fun {IsGoodEnoughRel Guess X}
+   {Abs ({Square Guess} - X) / X} < 0.001
+end
+fun {SqrtRel X}
+   {SqrtIterRel 1.0 X}
+end
+
+{Show {Sqrt 0.06}}
+{Show {SqrtRel 0.06}}
+{Show {Sqrt 5.0}}
+{Show {SqrtRel 5.0}}
+{Show {Sqrt 200000.0}}
+{Show {SqrtRel 200000.0}}
    
 %%%
 %%%    1.8
@@ -161,7 +240,187 @@ fun {Cbrt X}
    {CbrtIter 1.0 X}
 end
 
+%%%
+%%%    Optimal nesting
+%%%
+declare
+fun {Average X Y}
+   (X + Y) / 2.0
+end
+fun {Sqrt X}
+   fun {Iterate Guess X}
+      if {IsGoodEnough Guess X} then Guess
+      else {Iterate {Improve Guess X} X}
+      end
+   end
+   fun {Improve Guess X}
+      {Average Guess (X / Guess)}
+   end
+   fun {IsGoodEnough Guess X}
+      {Abs {Square Guess} - X} < 0.001
+   end
+in
+   {Iterate 1.0 X}
+end
 
+%%%
+%%%    Variations
+%%%    
+declare
+local
+   fun {Iterate Guess X}
+      if {IsGoodEnough Guess X} then Guess
+      else {Iterate {Improve Guess X} X}
+      end
+   end
+   fun {Improve Guess X}
+      {Average Guess (X / Guess)}
+   end
+   fun {IsGoodEnough Guess X}
+      {Abs {Square Guess} - X} < 0.001
+   end
+in
+   fun {Sqrt X}
+      {Iterate 1.0 X}
+   end
+end
+
+% declare
+% local Iterate in
+%    local Improve in
+%       local IsGoodEnough in
+%          Iterate = fun {$ Guess X} ... end
+%          Improve = fun {$ Guess X} ... end
+%          IsGoodEnough = fun {$ Guess X} ... end
+%          Sqrt = fun {$ X} {Iterate 1.0 X} end
+%       end
+%    end
+% end
+
+declare
+fun {Sqrt X}
+   fun {Iterate Guess X}
+      fun {Improve Guess X}
+         {Average Guess (X / Guess)}
+      end
+      fun {IsGoodEnough Guess X}
+         {Abs {Square Guess} - X} < 0.001
+      end
+   in
+      if {IsGoodEnough Guess X} then Guess
+      else {Iterate {Improve Guess X} X}
+      end
+   end
+in
+   {Iterate 1.0 X}
+end
+
+%%%
+%%%    Take advantage of lexical scope
+%%%    
+declare
+fun {Sqrt X}
+   fun {Iterate Guess}
+      if {IsGoodEnough Guess} then Guess
+      else {Iterate {Improve Guess}}
+      end
+   end
+   fun {Improve Guess}
+      {Average Guess (X / Guess)}
+   end
+   fun {IsGoodEnough Guess}
+      {Abs {Square Guess} - X} < 0.001
+   end
+in
+   {Iterate 1.0}
+end
+
+%%%
+%%%    Extreme
+%%%    
+declare
+fun {Sqrt X}
+   fun {Iterate Guess}
+      fun {Improve}
+         {Average Guess (X / Guess)}
+      end
+      fun {IsGoodEnough}
+         {Abs {Square Guess} - X} < 0.001
+      end
+   in
+      if {IsGoodEnough} then Guess
+      else {Iterate {Improve}}
+      end
+   end
+in
+   {Iterate 1.0}
+end
+
+%%%
+%%%    Refactor
+%%%
+%%
+%%    I.
+%%
+declare
+fun {Iterate Improve IsGoodEnough Guess X}
+   if {IsGoodEnough Guess X} then Guess
+   else {Iterate Improve IsGoodEnough {Improve Guess X} X}
+   end
+end
+fun {Sqrt X}
+   fun {Improve Guess X}
+      {Average Guess (X / Guess)}
+   end
+   fun {IsGoodEnough Guess X}
+      {Abs {Square Guess} - X} < 0.001
+   end
+in
+   {Iterate Improve IsGoodEnough 1.0 X}
+end
+fun {Cbrt X}
+   fun {Improve Guess X}
+      (2.0 * Guess + X / {Square Guess}) / 3.0
+   end
+   fun {IsGoodEnough Guess X}
+      {Abs ({Cube Guess} - X) / X} < 0.001
+   end
+in
+   {Iterate Improve IsGoodEnough 1.0 X}
+end
+
+{Show {Sqrt 7.0}}
+{Show {Cbrt 7.0}}
+
+%%
+%%    II. 见 CTMCP 123 页
+%%
+declare
+fun {Iterate Improve IsGoodEnough Guess}
+   if {IsGoodEnough Guess} then Guess
+   else {Iterate Improve IsGoodEnough {Improve Guess}}
+   end
+end
+fun {Sqrt X}
+   fun {Improve Guess}
+      {Average Guess (X / Guess)}
+   end
+   fun {IsGoodEnough Guess}
+      {Abs {Square Guess} - X} < 0.001
+   end
+in
+   {Iterate Improve IsGoodEnough 1.0}
+end
+fun {Cbrt X}
+   fun {Improve Guess}
+      (2.0 * Guess + X / {Square Guess}) / 3.0
+   end
+   fun {IsGoodEnough Guess}
+      {Abs ({Cube Guess} - X) / X} < 0.001
+   end
+in
+   {Iterate Improve IsGoodEnough 1.0}
+end
 
 declare
 fun {Factorial N}
@@ -170,6 +429,113 @@ fun {Factorial N}
    end
 end
 
+declare
+fun {Factorial N}
+   fun {Iterate I Result}
+      if I > N then Result
+      else {Iterate {Core.inc I} (Result * I)}
+      end
+   end
+in
+   {Iterate 1 1}
+end
+
+declare
+fun {Factorial N}
+   fun {Iterate I Result}
+      if {Lisp.zerop I} then Result
+      else {Iterate {Core.dec I} (Result * I)}
+      end
+   end
+in
+   {Iterate N 1}
+end
+
+{Show {Factorial 0}} % Careful!!
+{Show {Factorial 1}}
+{Show {Factorial 3}}
+{Show {Factorial 6}}
+
+
+declare
+fun {FactorialBuilder N}
+   fun {Build I F}
+      if {Lisp.zerop I} then {Core.partial F 1}
+      else {Build {Core.dec I} {Core.compose {Core.partial Number.'*' I} F}}
+      end
+   end
+in
+   {Build N Core.identity}
+end
+
+{Show {{Core.partial Core.identity 1}}}
+{Show {{Core.compose Sqrt Abs} ~2.3}}
+{Show {{Core.partial Number.'*' 3} 4}}
+{Show {{Core.compose {Core.partial Number.'*' 0.1} {Core.compose Sqrt Abs}} ~2.3}}
+
+{Show {{FactorialBuilder 10}}}
+
+declare
+fun {Stacktorial N}
+   fun {Push Stack I}
+      if {Lisp.zerop I} then {Pop Stack 1}
+      else {Push I|Stack {Core.dec I}}
+      end
+   end
+   fun {Pop Stack Result}
+      case Stack
+      of nil then Result
+      [] N|Ns then {Pop Ns (Result * N)}
+      end
+   end
+in
+   {Push nil N}
+end
+
+{Show {Stacktorial 0}}
+{Show {Stacktorial 1}}
+{Show {Stacktorial 3}}
+{Show {Stacktorial 6}}
+
+declare
+fun {Stackbonacci N}
+   fun {Iterate Stack Result}
+      case Stack
+      of nil then Result
+      [] I|Stack then
+         if I == 1 then {Iterate Stack (Result + 1)}
+         elseif I > 1 then {Iterate (I-1)|(I-2)|Stack Result}
+         else {Iterate Stack Result}
+         end
+      end
+   end
+in
+   {Iterate [N] 0}
+end
+
+declare
+fun {Stackbonacci N}
+   fun {Iterate Stack Result}
+      case Stack
+      of nil then Result
+      [] I|Stack then
+         case I
+         of 0 then {Iterate Stack Result}
+         [] 1 then {Iterate Stack (Result + 1)}
+         else {Iterate (I-1)|(I-2)|Stack Result}
+         end
+      end
+   end
+in
+   {Iterate [N] 0}
+end
+
+{Show {Stackbonacci 0}}
+{Show {Stackbonacci 1}}
+{Show {Stackbonacci 2}}
+{Show {Stackbonacci 3}}
+{Show {Stackbonacci 10}}
+{Show {Stackbonacci 20}}
 
 %%%
 %%%    1.9
@@ -303,13 +669,13 @@ declare
 fun {Multiply X Y} X * Y end
 fun {SlowExpt B N}
    if N == 0 then 1
-   else {Multiply B {SlowExpt B N-1}}
+   else {Multiply B {SlowExpt B (N - 1)}}
    end
 end
 fun {SlowExptIter B N}
    fun {Iterate Counter Product}
       if Counter == 0 then Product
-      else {Iterate Counter-1 {Multiply B Product}}
+      else {Iterate (Counter - 1) {Multiply B Product}}
       end
    end
 in
@@ -318,19 +684,19 @@ end
 fun {Square X} {Multiply X X} end
 fun {FastExpt B N}
    if N == 0 then 1
-   elseif {IsEven N} then {Square {FastExpt B N div 2}}
+   elseif {IsEven N} then {Square {FastExpt B (N div 2)}}
    else {Multiply B {FastExpt B N-1}}
    end
 end
-fun {FastExptIter B N}
+fun {FastExptIter X N}
    fun {Iterate A B N}
       if N == 0 then A
-      elseif {IsEven N} then {Iterate A {Square B} N div 2}
-      else {Iterate {Multiply A B} B N-1}
+      elseif {IsEven N} then {Iterate A {Square B} (N div 2)}
+      else {Iterate {Multiply A B} B (N - 1)}
       end
    end
 in
-   {Iterate 1 B N}
+   {Iterate 1 X N}
 end
 
 {Show {SlowExpt 7 9}}
@@ -345,13 +711,13 @@ declare
 fun {Add X Y} X + Y end
 fun {SlowTimes A B}
    if B == 0 then 0
-   else {Add A {SlowTimes A B-1}}
+   else {Add A {SlowTimes A (B - 1)}}
    end
 end
 fun {SlowTimesIter A B}
    fun {Iterate Counter Sum}
       if Counter == 0 then Sum
-      else {Iterate Counter-1 {Add A Sum}}
+      else {Iterate (Counter - 1) {Add A Sum}}
       end
    end
 in
@@ -362,18 +728,18 @@ fun {Double X} {Add X X} end
 fun {FastTimes A B}
    if B == 0 then 0
    elseif {IsEven B} then {Double {FastTimes A {Halve B}}}
-   else {Add A {FastTimes A B-1}}
+   else {Add A {FastTimes A (B - 1)}}
    end
 end
-fun {FastTimesIter A B}
+fun {FastTimesIter X Y}
    fun {Iterate S A B}
       if B == 0 then S
       elseif {IsEven B} then {Iterate S {Double A} {Halve B}}
-      else {Iterate {Add S A} A B-1}
+      else {Iterate {Add S A} A (B - 1)}
       end
    end
 in
-   {Iterate 0 A B}
+   {Iterate 0 X Y}
 end
 
 {Show {SlowTimes 6 7}}
@@ -388,8 +754,8 @@ declare
 fun {FastFibIter N}
    fun {Iterate A B P Q Count}
       if Count == 0 then B
-      elseif {IsEven Count} then {Iterate A B (P*P + Q*Q) (Q*Q + 2*P*Q) Count div 2}
-      else {Iterate (B*Q + A*Q + A*P) (B*P + A*Q) P Q Count-1}
+      elseif {IsEven Count} then {Iterate A B (P*P + Q*Q) (Q*Q + 2*P*Q) (Count div 2)}
+      else {Iterate (B*Q + A*Q + A*P) (B*P + A*Q) P Q (Count - 1)}
       end
    end
 in
@@ -493,6 +859,13 @@ end
 % {Show {PiSum 1 1000} * 8.0}
 % {Show {PiSum 1 10000} * 8.0}
 
+%%%
+%%%    1.30
+%%%    
+%%%    The book generalizes too far due to the genericity of Lisp arithmetic operators.
+%%%    In Lisp, it doesn't matter whether the base case sum is 0 or 0.0. But it matters in
+%%%    Oz. This value must be passed as a separate parameter.
+%%%    
 declare
 fun {Sum Term Next A B Initial}
    if A > B then Initial
@@ -513,11 +886,12 @@ end
 
 declare
 fun {SumIntegersHO A B}
-   {Sum Lisp.identity Core.inc A B 0}
+   {Sum Core.identity Core.inc A B 0}
 end
 fun {PiSumHO A B}
    {Sum fun {$ X} (1.0 / (X * (X + 2.0))) end
-        fun {$ X} X + 4.0 end 
+%        fun {$ X} X + 4.0 end 
+        {Core.partial Number.'+' 4.0}
         A
         B
         0.0}
@@ -531,6 +905,13 @@ end
 {Show {PiSumHO 1.0 1000.0} * 8.0}
 {Show {PiSumHO 1.0 10000.0} * 8.0}
 
+declare
+fun {Integral F A B Dx}
+   {Sum F {Core.partial Number.'+' Dx} (A + (Dx / 2.0)) B 0.0} * Dx
+end
+
+{Show {Integral Cube 0.0 1.0 0.01}}
+{Show {Integral Cube 0.0 1.0 0.001}}
 
 %%%
 %%%    1.29
@@ -557,7 +938,7 @@ end
 {Show {Simpsons Cube 0.0 1.0 10}}
 {Show {Simpsons Cos 0.0 Lisp.pi 10}}
 {Show {Simpsons Cos 0.0 (Lisp.pi / 2.0) 10}}
-{Show {Simpsons fun {$ X} X end 0.0 1.0 10}}
+{Show {Simpsons Core.identity 0.0 1.0 10}}
 {Show {Simpsons fun {$ X} 2.0 * X + 3.0 end 0.0 1.0 10}}
 
 declare
@@ -597,7 +978,7 @@ in
    {Iterate A Initial}
 end
 fun {FactorialProduct N}
-   {Product Lisp.identity Core.inc 1 N 1}
+   {Product Core.identity Core.inc 1 N 1}
 end
 % fun {PiProduct A B}
 %    fun {Term I}
@@ -644,8 +1025,8 @@ fun {AccumulateProduct Term Next A B}
    {Accumulate Number.'*' 1 Term Next A B}
 end
 
-{Show {AccumulateSum Lisp.identity Core.inc 1 100}}
-{Show {AccumulateProduct Lisp.identity Core.inc 1 10}}
+{Show {AccumulateSum Core.identity Core.inc 1 100}}
+{Show {AccumulateProduct Core.identity Core.inc 1 10}}
 
 declare
 fun {Accumulate Combiner NullValue Term Next A B}
@@ -675,7 +1056,7 @@ fun {FilteredAccumulate Pred Combiner NullValue Term Next A B}
    end
 end
 fun {FilteredAccumulateFactorial N}
-   {FilteredAccumulate {Lisp.constantly true} Number.'*' 1 Lisp.identity Core.inc 1 N}
+   {FilteredAccumulate {Core.constantly true} Number.'*' 1 Core.identity Core.inc 1 N}
 end
 fun {SumPrimeSquares A B}
    {FilteredAccumulate fun {$ N} N > 1 andthen {IsPrime N} end Number.'+' 0 Square Core.inc A B}
@@ -696,13 +1077,13 @@ in
    {Iterate A NullValue}
 end
 fun {FilteredAccumulateFactorial N}
-   {FilteredAccumulate {Lisp.constantly true} Number.'*' 1 Lisp.identity Core.inc 1 N}
+   {FilteredAccumulate {Core.constantly true} Number.'*' 1 Core.identity Core.inc 1 N}
 end
 fun {SumPrimeSquares A B}
    {FilteredAccumulate fun {$ N} N > 1 andthen {IsPrime N} end Number.'+' 0 Square Core.inc A B}
 end
 fun {RelativePrimeProduct N}
-   {FilteredAccumulate fun {$ M} {Lisp.gcd M N} == 1 end Number.'*' 1 Lisp.identity Core.inc 1 (N - 1)}
+   {FilteredAccumulate fun {$ M} {Lisp.gcd M N} == 1 end Number.'*' 1 Core.identity Core.inc 1 (N - 1)}
 end
 
 {Show {RelativePrimeProduct 1}}
@@ -733,8 +1114,8 @@ fun {HalfIntervalMethod F A B}
    AVal = {F A}
    BVal = {F B}
 in
-   if {Core.enclosedBy 0.0 AVal BVal} then {Search F A B}
-   elseif {Core.enclosedBy 0.0 BVal AVal} then {Search F B A}
+   if {Core.inOrder AVal 0.0 BVal} then {Search F A B}
+   elseif {Core.inOrder BVal 0.0 AVal} then {Search F B A}
    else raise "Values are not of opposite sign ("#A#" "#B#")" end
    end
 end
@@ -771,6 +1152,11 @@ fun {GoldenRatio}
 end
 
 {Show {GoldenRatio}}
+
+declare
+fun {GoldenRatio}
+   {FixedPoint {Core.compose Core.inc {Core.partial Float.'/' 1.0}} 1.0}
+end
 
 %%%
 %%%    1.36
@@ -809,7 +1195,7 @@ declare
 fun {ContFrac N D K}
    fun {Recur I}
       if I > K then 0.0
-      else {N I} / ({D I} + {Recur I + 1})
+      else {N I} / ({D I} + {Recur {Core.inc I}})
       end
    end
 in
@@ -818,22 +1204,22 @@ end
 fun {ContFracIter N D K}
    fun {Iterate I Result}
       if {Lisp.zerop I} then Result
-      else {Iterate (I - 1) {N I} / ({D I} + Result)}
+      else {Iterate {Core.dec I} {N I} / ({D I} + Result)}
       end
    end
 in
    {Iterate K 0.0}
 end
 
-{Show 1.0 / {ContFrac {Lisp.constantly 1.0} {Lisp.constantly 1.0} 1000000}}
-{Show 1.0 / {ContFracIter {Lisp.constantly 1.0} {Lisp.constantly 1.0} 1000000}}
+{Show 1.0 / {ContFrac {Core.constantly 1.0} {Core.constantly 1.0} 1000000}}
+{Show 1.0 / {ContFracIter {Core.constantly 1.0} {Core.constantly 1.0} 1000000}}
 
 %%%
 %%%    1.38
 %%%
 declare
 fun {Eminus2 K}
-   {ContFrac {Lisp.constantly 1.0}
+   {ContFrac {Core.constantly 1.0}
     fun {$ I}
        case I mod 3
        of 2 then 2.0 * {Ceil {IntToFloat I} / 3.0}
@@ -843,7 +1229,7 @@ fun {Eminus2 K}
     K}
 end
 fun {Eminus2Clever K}
-   {ContFrac {Lisp.constantly 1.0}
+   {ContFrac {Core.constantly 1.0}
     fun {$ I}
        1.0 + (1.0 + (2.0 * {Floor {IntToFloat I} / 3.0})) *
              {Floor ({IntToFloat I mod 3} + 1.0) / 3.0}
@@ -881,7 +1267,8 @@ fun {AverageDamp F}
    end
 end
 fun {SqrtAd X}
-   {FixedPoint {AverageDamp fun {$ Y} X / Y end} 1.0}
+%   {FixedPoint {AverageDamp fun {$ Y} X / Y end} 1.0}
+   {FixedPoint {AverageDamp {Core.partial Float.'/' X}} 1.0}
 end
 
 {Show {SqrtAd 16.0}}
@@ -889,7 +1276,8 @@ end
 
 declare
 fun {CbrtAd X}
-   {FixedPoint {AverageDamp fun {$ Y} X / {Square Y} end} 1.0}
+%   {FixedPoint {AverageDamp fun {$ Y} X / {Square Y} end} 1.0}
+   {FixedPoint {AverageDamp {Core.compose {Core.partial Float.'/' X} Square}} 1.0}
 end
 
 {Show {CbrtAd 8.0}}
@@ -931,7 +1319,8 @@ fun {FixedPointOfTransform G Transform Guess}
    {FixedPoint {Transform G} Guess}
 end
 fun {SqrtAdXform X}
-   {FixedPointOfTransform fun {$ Y} X / Y end AverageDamp 1.0}
+%   {FixedPointOfTransform fun {$ Y} X / Y end AverageDamp 1.0}
+   {FixedPointOfTransform {Core.partial Float.'/' X} AverageDamp 1.0}
 end
 fun {SqrtNewtonXform X}
    {FixedPointOfTransform fun {$ Y} {Square Y} - X end NewtonTransform 1.0}
@@ -969,6 +1358,11 @@ fun {Double F}
    end
 end
 
+declare
+fun {Double F}
+   {Core.compose F F}
+end
+
 {Show {{Double Inc} 5}}
 
 {Show {{Double {Double Inc}} 5}}
@@ -999,7 +1393,7 @@ end
 declare
 fun {Compose Fs}
    case Fs
-   of nil then Lisp.identity
+   of nil then Core.identity
    [] F|Fr then {FoldL Fr fun {$ F G} fun {$ X} {F {G X}} end end F}
    end
 end
@@ -1009,7 +1403,7 @@ end
 %%%
 declare
 fun {Repeated F N}
-   if N == 0 then Lisp.identity
+   if N == 0 then Core.identity
    elseif N == 1 then F
    else {Compose [F {Repeated F (N - 1)}]}
    end
@@ -1017,11 +1411,12 @@ end
 fun {RepeatedIter F N}
    fun {Repeat N Result}
       if N == 0 then Result
-      else {Repeat (N - 1) fun {$ X} {F {Result X}} end}
+%      else {Repeat (N - 1) fun {$ X} {F {Result X}} end}
+      else {Repeat (N - 1) {Core.compose F Result}}
       end
    end
 in
-   if N == 0 then Lisp.identity
+   if N == 0 then Core.identity
    else {Repeat (N - 1) F}
    end
 end
@@ -1045,6 +1440,15 @@ end
 
 {Show {{Smooth Square} 4.0}}
 
+declare
+fun {SmoothN F N}
+   {{Repeated Smooth N} F}
+end
+
+{Show {{SmoothN Square 1} 4.0}}
+{Show {{SmoothN Square 2} 4.0}}
+{Show {{SmoothN Square 3} 4.0}}
+
 %%%
 %%%    1.45
 %%%
@@ -1058,3 +1462,105 @@ fun {NthRoot N}
 end
 
 {Show {{NthRoot 3} 8.0}}
+{Show {{NthRoot 3} ~8.0}}
+{Show {{NthRoot 2} 4.0}}
+{Show {{NthRoot 4} 16.0}}
+{Show {{NthRoot 10} 1024.0}}
+
+%%%
+%%%    1.46
+%%%
+declare
+fun {IterativeImprove IsGoodEnough Improve}
+   fun {Iterate Guess}
+      if {IsGoodEnough Guess} then Guess
+      else {Iterate {Improve Guess}}
+      end
+   end
+in
+   Iterate
+end
+
+declare
+fun {SqrtHO X}
+   {{IterativeImprove fun {$ Guess} {Abs {Square Guess} - X} < 0.001 end
+                      fun {$ Guess} {Average Guess (X / Guess)} end}
+    1.0}
+end
+
+{Show {SqrtHO 4.0}}
+{Show {SqrtHO 9.0}}
+{Show {SqrtHO 5.0}}
+
+declare
+fun {FixedPointHO F Initial}
+   Tolerance = 0.00001
+in
+   {F {{IterativeImprove fun {$ Guess} {Abs Guess - {F Guess}} < Tolerance end
+                         F}
+       Initial}}
+end
+
+{Show {FixedPointHO Cos 1.0}}
+{Show {FixedPointHO fun {$ X} {Sin X} + {Cos X} end 1.0}}
+
+declare
+fun {IterativeImprove IsGoodEnough Improve}
+   {fun {$ M}
+       {fun {$ Future}
+           {M fun {$ Arg} {{Future Future} Arg} end}
+        end
+        fun {$ Future}
+           {M fun {$ Arg} {{Future Future} Arg} end}
+        end}
+    end
+    fun {$ Recur}
+       fun {$ Guess}
+          if {IsGoodEnough Guess} then Guess
+          else {Recur {Improve Guess}}
+          end
+       end
+    end}
+end
+
+%%%
+%%%   Graham-style
+%%%   
+declare
+fun {IterativeImprove IsGoodEnough Improve}
+   {fun {$ F} fun {$ Guess} {F F Guess} end end
+    fun {$ F Guess}
+       if {IsGoodEnough Guess} then Guess
+       else {F F {Improve Guess}}
+       end
+    end}
+end
+
+declare
+fun {IterativeImprove IsGoodEnough Improve}
+   fun {$ Guess}
+      if {IsGoodEnough Guess} then Guess
+      else {{IterativeImprove IsGoodEnough Improve} {Improve Guess}}
+      end
+   end
+end
+
+%%%
+%%%    CTMCP style
+%%%
+declare
+fun {Iterate State IsGoodEnough Improve}
+   if {IsGoodEnough State} then State
+   else {Iterate {Improve State} IsGoodEnough Improve}
+   end
+end
+fun {SqrtHO X}
+   {Iterate 1.0
+            fun {$ Guess} {Abs {Square Guess} - X} < 0.001 end
+            fun {$ Guess} {Average Guess (X / Guess)} end}
+end
+fun {FixedPointHO F Initial}
+   Tolerance = 0.00001
+in
+   {F {Iterate Initial fun {$ Guess} {Abs Guess - {F Guess}} < Tolerance end F}}
+end
