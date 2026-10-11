@@ -1304,7 +1304,7 @@ declare
 fun {EvenFibs N}
    fun {Next K}
       if K > N then nil
-      else F = {Fibonacci K}
+      else F = {FastFibIter K}
       in
          if {IsEven F} then F|{Next K+1}
          else {Next K+1}
@@ -1341,6 +1341,7 @@ end
 {Show {FoldR [1 2 3 4 5] Number.'+' 0}}
 {Show {FoldR [1 2 3 4 5] Number.'*' 1}}
 {Show {FoldR [1 2 3 4 5] fun {$ X Y} X|Y end nil}}
+{Show {FoldR [1 2 3 4 5] Lisp.cons nil}}
 
 % fun {FoldL Xs P Z}
 %    case Xs of nil then Z
@@ -1348,5 +1349,481 @@ end
 %    end
 % end
 
+declare
+fun {EnumerateInterval Low High}
+   fun {Collect I Result}
+      if I > High then {Reverse Result}
+      else {Collect {Core.inc I} I|Result}
+      end
+   end
+in
+   {Collect Low nil}
+end
 
-         
+{Show {EnumerateInterval 2 9}}
+
+declare
+fun {EnumerateTree Tree}
+   {Flatten Tree}
+end
+fun {Square X} X * X end
+
+declare
+fun {SumOddSquares Tree}
+   {FoldR {Map {Filter {EnumerateTree Tree} IsOdd} Square} Number.'+' 0}
+end
+
+declare
+fun {SumOddSquares Tree}
+   {FoldL {Map {Filter {EnumerateTree Tree} IsOdd} Square} Number.'+' 0}
+end
+
+declare
+fun {EvenFibs N}
+   {FoldR {Filter {Map {EnumerateInterval 0 N} FastFibIter} IsEven} Lisp.cons nil}
+end
+
+declare
+fun {ListFibSquares N}
+   {Map {EnumerateInterval 0 N} {Core.compose Square FastFibIter}}
+end
+
+{Show {ListFibSquares 10}}
+
+declare
+fun {ProductOfSquaresOfOddElements Sequence}
+   {FoldR {Map {Filter Sequence IsOdd} Square} Number.'*' 1}
+end
+
+{Show {ProductOfSquaresOfOddElements {EnumerateInterval 1 5}}}
+
+%%%
+%%%    2.33
+%%%
+declare
+fun {Map Sequence P}
+   {FoldR Sequence fun {$ Elt Result} {P Elt}|Result end nil}
+end
+
+{Show {Map nil Core.inc}}
+{Show {Map {EnumerateInterval 1 10} Core.inc}}
+{Show {Map {EnumerateInterval 1 10} Square}}
+{Show {Map {EnumerateInterval 1 10} FastFibIter}}
+
+declare
+fun {Filter Sequence P}
+   {FoldR Sequence fun {$ Elt Result} if {P Elt} then Elt|Result else Result end end nil}
+end
+
+{Show {Filter nil IsOdd}}
+{Show {Filter {EnumerateInterval 1 10} IsOdd}}
+
+declare
+fun {CopyList L}
+   {FoldR L Lisp.cons nil}
+end
+
+{Show {CopyList nil}}
+{Show {CopyList [a b c]}}
+
+declare
+fun {Append L1 L2}
+   {FoldR L1 Lisp.cons L2}
+end
+
+{Show {Append nil nil}}
+{Show {Append nil [a]}}
+{Show {Append [a] nil}}
+{Show {Append [a b] [c d e]}}
+
+declare
+fun {CopyList L}
+   {Append L nil}
+end
+
+declare
+fun {CopyList L}
+   {Map L Core.identity}
+end
+
+declare
+fun {Length Sequence}
+   {FoldR Sequence fun {$ _ Count} {Core.inc Count} end 0}
+end
+
+{Show {Length nil}}
+{Show {Length [a]}}
+{Show {Length [a b c d e]}}
+
+declare
+fun {Length Sequence}
+   {FoldL Sequence fun {$ Count _} {Core.inc Count} end 0}
+end
+
+%%%
+%%%    2.34 The book has a strange specification of Horner's due to the use of
+%%%         a right fold--the coefficients are given in ascending order...
+%%%
+declare
+fun {Horners X Coefficients}
+   {FoldR Coefficients fun {$ B A} (A * X) + B end if {IsInt X} then 0 else 0.0 end}
+end
+
+{Show {Horners 10 [8 4 3 2]}} % Represent an integer as a list of digits.
+{Show {Horners 8 [7 7 3]}} % 0377
+{Show {Horners 2 [1 1 0 1 0 1 1 1]}}
+{Show {Horners 8 [~9 3 5]}} % Evaluate polynomial: 5x² + 3x ~ 9
+{Show {Horners 12 [~9 3 5]}}
+{Show {Horners 0.1 [~9.0 3.0 5.0]}}
+{Show {Horners 2 [1 3 0 5 0 1]}}
+{Show {Horners 0 [1 3 0 5 0 1]}}
+
+%%%
+%%%    2.35
+%%%
+declare
+fun {CountLeaves Tree}
+   case Tree
+   of nil then 0
+   [] H|T then
+      {CountLeaves H} + {CountLeaves T}
+   else 1
+   end
+end
+
+{Show {CountLeaves [1 2 [3 [4 [5] 6] [7]] 8 [9]]}}
+
+declare
+fun {CountLeaves Tree}
+   {FoldR {Map {EnumerateTree Tree} {Core.constantly 1}} Number.'+' 0}
+end
+
+declare
+fun {CountLeaves Tree}
+   {FoldR {EnumerateTree Tree} fun {$ _ Count} {Core.inc Count} end 0}
+end
+
+declare
+fun {CountLeaves Tree}
+   {Length {EnumerateTree Tree}}
+end
+
+%%%
+%%%    2.36
+%%%
+declare
+fun {AccumulateN Op Init Seqs}
+   case Seqs
+   of nil|_ then nil
+   else {FoldR {Map Seqs Lisp.car} Op Init}|{AccumulateN Op Init {Map Seqs Lisp.cdr}}
+   end
+end
+
+{Show {Map [[1 2 3] [4 5 6] [7 8 9] [10 11 12]] Lisp.cdr}}
+{Show {AccumulateN Number.'+' 0 [[1 2 3] [4 5 6] [7 8 9] [10 11 12]]}}
+
+% Map grabs N args. Can't do arbitrary LIST call (no &REST params!)
+% Above version
+declare
+fun {AccumulateN Op Init Seqs}
+%   {Lisp.apply fun {$ F Xs} {MapN Xs F} end {Core.compose {Core.partial {Core.partial FoldR Op} Init}} Seqs}
+   {{Core.partial fun {$ F Xs} {MapN Xs F} end {Core.partial {Core.partial FoldR Op} Init}} Seqs}
+end
+
+%%%
+%%%    2.37
+%%%
+declare
+fun {Map2 Xs Ys F}
+   {List.zip Xs Ys F}
+end
+
+declare
+fun {DotProduct U V} % Must be same length!
+   {FoldR {Map2 U V Number.'*'} Number.'+' 0}
+end
+
+{Show {Map2 [1 2 3] [4 5 6] Number.'*'}}
+{Show {DotProduct [1 2 3] [4 5 6]}}
+
+{Show 110 == {DotProduct [10 20] [3 4]}}
+%{Show 110 == {DotProduct [10 20 8] [3 4]}}
+%{Show 110 {DotProduct [10 20] [3 4 6]}}
+{Show 3 == {DotProduct [1 3 ~5] [4 ~2 ~1]}}
+
+declare
+fun {MapN Seqs F}
+   if Seqs == nil then nil % Edge case. More significant for Lisp &REST param...
+   elseif {Some Seqs Lisp.null} then nil
+   else {Lisp.apply F {Map Seqs Lisp.car}}|{MapN {Map Seqs Lisp.cdr} F}
+   end
+end
+
+%%%
+%%%    Pointless. MapN already handles...
+%%%    
+% declare
+% fun {MapN2 Seqs F}
+%    if {Some Seqs Lisp.null} then nil
+%    else {Lisp.apply F {Map Seqs Lisp.car}}|{MapN2 {Map Seqs Lisp.cdr} F}
+%    end
+% end
+
+%%%
+%%%    This is a more tolerant Zip. 2 seqs need not be same length.
+%%%    
+declare
+fun {MapN2 Xs Ys F}
+   if {Some [Xs Ys] Lisp.null} then nil
+   else {F Xs.1 Ys.1}|{MapN2 Xs.2 Ys.2 F}
+   end
+end
+
+{Show {MapN [[1 2] [3 4] [5 6]] fun {$ X Y Z} X + Y + Z end}}
+{Show {MapN [[1 2] [3 4] [5]] fun {$ X Y Z} X + Y + Z end}}
+
+{Show {MapN [[1 2] [3 4]] fun {$ X Y} X + Y end}}
+{Show {MapN [[1 2] [3]] fun {$ X Y} X + Y end}}
+
+{Show {MapN2 [1 2] [3 4] fun {$ X Y} X + Y end}}
+{Show {MapN2 [1 2] [3] fun {$ X Y} X + Y end}}
+
+
+% fun {Map Xs P}
+%    case Xs of nil then nil
+%    [] X|Xr then {P X}|{Map Xr P}
+%    end
+% end
+
+% fun {Zip Xs Ys P}
+%    case Xs
+%    of nil then
+%       case Ys
+%       of nil then nil
+%       end
+%    [] X|Xr then
+%       case Ys
+%       of Y|Yr then {P X Y}|{Zip Xr Yr P}
+%       end
+%    end
+% end
+
+%%%
+%%%    matrix x vector -> vector
+%%%
+declare
+fun {MatrixXVector M V}
+   {Map M fun {$ U} {DotProduct V U} end}
+end
+
+{Show [16 17] == {MatrixXVector [[3 1 4] [0 2 5]] [2 6 1]}}
+{Show [9 ~6 4 ~1] == {MatrixXVector [[1 4 0] [4 2 0] [1 5 ~2] [~1 4 ~4]] [~3 3 4]}}
+{Show [0 ~3 ~6 ~9] == {MatrixXVector [[1 2 3] [4 5 6] [7 8 9] [10 11 12]] [~2 1 0]}}
+{Show [1 ~3] == {MatrixXVector [[1 ~1 2] [0 ~3 1]] [2 1 0]}}
+
+declare
+fun {MatrixXVector M V}
+   {Map M {Core.partial DotProduct V}}
+end
+
+declare
+fun {Transpose M}
+   {AccumulateN Lisp.cons nil M}
+end
+
+{Show [[1 3] [2 4]] == {Transpose [[1 2] [3 4]]}}
+
+declare
+fun {MatrixXMatrix M N}
+   Cols = {Transpose N}
+in
+   {Map M fun {$ Row} {Map Cols fun {$ Col} {DotProduct Col Row} end} end}
+end
+
+{Show [[31 19] [85 55]] == {MatrixXMatrix [[1 2 3] [4 5 6]] [[7 8] [9 1] [2 3]]}}
+
+
+%%%
+%%%    2.38 (见 Accumulate above)
+%%%
+% fun {FoldR Xs P Z}
+%    case Xs of nil then Z
+%    [] X|Xr then {P X {FoldR Xr P Z}}
+%    end
+% end
+
+% fun {FoldL Xs P Z}
+%    case Xs of nil then Z
+%    [] X|Xr then {FoldL Xr P {P Z X}}
+%    end
+% end
+
+%%%
+%%%    2.39
+%%%
+declare
+fun {Reverse L}
+   {FoldR L fun {$ Elt Result} {Append Result [Elt]} end nil}
+end
+
+{Show {Reverse nil}}
+{Show {Reverse [a]}}
+{Show {Reverse [a b c d]}}
+
+declare
+fun {Reverse L}
+   {FoldL L fun {$ Result Elt} Elt|Result end nil}
+end
+
+%%%
+%%%    Nested mappings
+%%%
+declare
+fun {FlatMap Xs P}
+   {FoldR {Map Xs P} Append nil}
+end
+
+{Show {FlatMap [1 2 3] fun {$ X} [X] end}}
+
+declare
+fun {IsPrimeSum [M N]}
+   {IsPrime M + N}
+end
+
+{Show {IsPrimeSum [2 3]}} % Not possible for this exercise!
+{Show {IsPrimeSum [2 1]}}
+{Show {IsPrimeSum [3 2]}}
+{Show {IsPrimeSum [9 4]}}
+{Show {IsPrimeSum [10 9]}}
+{Show {Not {IsPrimeSum [3 1]}}}
+{Show {Not {IsPrimeSum [10 6]}}}
+
+declare
+fun {MakeTriple Pair}
+   {Append Pair [{FoldL Pair Number.'+' 0}]}
+end
+
+{Show {MakeTriple [1 2]}}
+
+declare
+fun {PrimeSumPairs N}
+   {Map {Filter {FlatMap {EnumerateInterval 1 N}
+                 fun {$ I}
+                    {Map {EnumerateInterval 1 {Core.dec I}} fun {$ J} [I J] end}
+                 end}
+         IsPrimeSum}
+    MakeTriple}
+end
+
+{Show nil == {PrimeSumPairs 1}}
+{Show [[2 1 3]] == {PrimeSumPairs 2}}
+{Show [[2 1 3] [3 2 5]] == {PrimeSumPairs 3}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7]] == {PrimeSumPairs 4}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7]] == {PrimeSumPairs 5}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7] [6 1 7] [6 5 11]] == {PrimeSumPairs 6}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7] [6 1 7] [6 5 11] [7 4 11] [7 6 13]] == {PrimeSumPairs 7}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7] [6 1 7] [6 5 11] [7 4 11] [7 6 13] [8 3 11] [8 5 13]] ==
+ {PrimeSumPairs 8}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7] [6 1 7] [6 5 11] [7 4 11] [7 6 13] [8 3 11] [8 5 13]
+       [9 2 11] [9 4 13] [9 8 17]] ==
+ {PrimeSumPairs 9}}
+{Show [[2 1 3] [3 2 5] [4 1 5] [4 3 7] [5 2 7] [6 1 7] [6 5 11] [7 4 11] [7 6 13] [8 3 11] [8 5 13]
+       [9 2 11] [9 4 13] [9 8 17] [10 1 11] [10 3 13] [10 7 17] [10 9 19]] ==
+ {PrimeSumPairs 10}}
+
+%%%
+%%%    另见 List.subtract
+%%%    
+declare
+fun {Remove Xs Y}
+   {Filter Xs fun {$ Elt} Elt \= Y end}
+end
+
+declare
+fun {Remove Xs Y}
+   {Filter Xs {Core.partial {Core.complement Value.'=='} Y}}
+end
+
+{Show {Remove [a b c a d e] a}}
+{Show {Remove [a b c a d e] x}}
+{Show {Remove nil a}}
+
+declare
+fun {Permutations S}
+   case S
+   of nil then [nil]
+   else {FlatMap S fun {$ X} {Map {Permutations {List.subtract S X}} {Core.partial Lisp.cons X}} end}
+   end
+end
+
+{Show {Permutations nil}}
+{Show {Permutations [a]}}
+{Show {Permutations [a b]}}
+{Show {Permutations [a b c]}}
+{Show {Permutations [a b c d]}}
+{Show {Permutations [a b c d e]}}
+
+
+
+
+
+
+
+%%%
+%%%    2.40
+%%%
+declare
+fun {UniquePairs N}
+   {FlatMap {EnumerateInterval 1 N}
+    fun {$ I}
+       {Map {EnumerateInterval 1 {Core.dec I}} fun {$ J} [I J] end}
+    end}
+end
+
+{Show {UniquePairs 6}}
+
+declare
+fun {PrimeSumPairs N}
+   {Map {Filter {UniquePairs N} IsPrimeSum} MakeTriple}
+end
+
+%%%
+%%%    2.41
+%%%
+declare
+fun {TripleSums N S}
+   {Filter {FlatMap {EnumerateInterval 1 N}
+            fun {$ I}
+               {FlatMap {EnumerateInterval 1 {Core.dec I}}
+                fun {$ J}
+                   {Map {EnumerateInterval 1 {Core.dec J}} fun {$ K} [I J K] end}
+                end}
+            end}
+    fun {$ Elt}
+       {FoldL Elt Number.'+' 0} == S
+    end}
+end
+
+{Show {TripleSums 6 10}}
+{Show {TripleSums 6 11}}
+{Show {TripleSums 10 10}}
+{Show {TripleSums 10 20}}
+
+declare
+fun {UniqueTriples N}
+   {FlatMap {EnumerateInterval 1 N}
+    fun {$ I}
+       {FlatMap {EnumerateInterval 1 {Core.dec I}}
+        fun {$ J}
+           {Map {EnumerateInterval 1 {Core.dec J}} fun {$ K} [I J K] end}
+        end}
+    end}
+end
+
+{Show {UniquePairs 6}}
+{Show {UniqueTriples 6}}
+
+declare
+fun {TripleSums N S}
+   {Filter {UniqueTriples N} {Core.partial Lisp.apply fun {$ A B C} A + B + C == S end}}
+end
